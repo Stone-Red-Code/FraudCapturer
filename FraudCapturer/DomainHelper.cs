@@ -33,7 +33,7 @@ internal class DomainHelper
             };
 
             HttpClient httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("User-Agent", $"{Program.AppName} - (coming soon)");
+            httpClient.DefaultRequestHeaders.Add("User-Agent", $"{Program.AppName} - https://github.com/Stone-Red-Code/FraudCapturer");
 
             AntiFishReqestBody reqestBody = new AntiFishReqestBody()
             {
