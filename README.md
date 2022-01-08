@@ -21,7 +21,7 @@
 
 1. How does FraudCapturer determine which IP addresses or domains are potential threats?\
    It uses the [proxycheck.io](https://proxycheck.io/) and [Anti-Fish](https://anti-fish.bitflow.dev/) APIs.\
-   You can even add custom rules in the [proxycheck.io API dashboard](https://proxycheck.io/dashboard/) to block or allow certain IPs or Providers
+   You can even add custom rules in the [proxycheck.io API dashboard](https://proxycheck.io/dashboard/) to block or allow certain IPs and providers
 
 1. Why does FraudCapturer need administrator rights?\
    FraudCapturer needs them because it uses the Windows firewall to block IP addresses.
