@@ -1,6 +1,6 @@
 # FraudCapturer
  
-> FraudCapturer is a app which analyzes the network trafic of your PC and blocks potential threats
+> FraudCapturer is a windows app which analyzes the network trafic of your PC and blocks potential threats
 
 ## Usage
 
