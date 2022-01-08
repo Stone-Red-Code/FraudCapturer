@@ -12,7 +12,7 @@
 
 ## Additional information
 
-1. Why do i need to install nmap?\
+1. Why do I need to install nmap?\
    It is required because FraudCapturer uses it to monitor incoming and outgoing packets.\
    FraudCapturer uses the [sharppcap](https://github.com/dotpcap/sharppcap) ([license](https://github.com/dotpcap/sharppcap/blob/master/LICENSE)) library to communicate with nmap.
 
