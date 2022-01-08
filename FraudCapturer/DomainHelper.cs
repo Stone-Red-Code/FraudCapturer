@@ -22,7 +22,7 @@ internal class DomainHelper
         return domains.Distinct().ToArray();
     }
 
-    public static DomainInfo? GetDomainReputation(string domain)
+    public static async Task<DomainInfo?> GetDomainReputation(string domain)
     {
         try
         {
@@ -41,10 +41,19 @@ internal class DomainHelper
             };
 
             HttpContent httpContent = new StringContent(JsonSerializer.Serialize(reqestBody), Encoding.UTF8, "application/json");
+            HttpResponseMessage responseMessage;
 
-            HttpResponseMessage responseMessage = httpClient.PostAsync("https://anti-fish.bitflow.dev/check", httpContent).GetAwaiter().GetResult(); ;
+            try
+            {
+                responseMessage = await httpClient.PostAsync("https://anti-fish.bitflow.dev/check", httpContent);
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"error: {ex.Message}");
+                return null;
+            }
 
-            string resultString = responseMessage.Content.ReadAsStringAsync().GetAwaiter().GetResult(); ;
+            string resultString = await responseMessage.Content.ReadAsStringAsync();
             AntiFishResultBody? resultBody = JsonSerializer.Deserialize<AntiFishResultBody>(resultString);
 
             AntiFishResult? result = resultBody?.Matches?.FirstOrDefault(m => m.Domain == domain);

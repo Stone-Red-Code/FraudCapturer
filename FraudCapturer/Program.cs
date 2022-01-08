@@ -3,6 +3,7 @@ using PacketDotNet;
 
 using SharpPcap;
 
+using System.Collections.Concurrent;
 using System.Net;
 
 namespace FraudCapturer;
@@ -19,8 +20,8 @@ public class Program
     private static DateTime lastCacheClear;
     private static string lastDomain = string.Empty;
 
-    private static readonly List<string> capturedIpsCache = new();
-    private static readonly Dictionary<string, DomainInfo> capturedDomainsCache = new();
+    private static readonly ConcurrentBag<string> capturedIpsCache = new();
+    private static readonly ConcurrentDictionary<string, DomainInfo?> capturedDomainsCache = new();
 
     /// <summary>
     /// The main entry point for the application.
@@ -101,6 +102,11 @@ public class Program
     private static void Device_OnPacketArrival(object sender, PacketCapture e)
     {
         RawCapture rawPacket = e.GetPacket();
+        ProcessRawPacket(rawPacket);
+    }
+
+    private static async void ProcessRawPacket(RawCapture rawPacket)
+    {
         Packet packet = Packet.ParsePacket(rawPacket.LinkLayerType, rawPacket.Data);
         if (packet is EthernetPacket)
         {
@@ -137,27 +143,27 @@ public class Program
                 }
 
                 //Check if a DNS packet contains a "dangerous" domain.
-                CheckDns(packet, remoteIpAddress, direction);
+                await CheckDns(packet, remoteIpAddress, direction);
 
                 if (capturedIpsCache.Contains(remoteIpAddress.ToString()))
                 {
                     return;
                 }
 
-                TimeSpan timeRemainingUntilCacheReset = new TimeSpan(0, 10, 0) - (DateTime.Now - lastCacheClear);
-                Console.WriteLine($"Next cache reset in {timeRemainingUntilCacheReset.Minutes} minute(s) and {timeRemainingUntilCacheReset.Seconds} second(s)");
-
                 capturedIpsCache.Add(remoteIpAddress.ToString());
 
                 //Check if ip address is "dangerous" or blocked
-                CheckIpAddress(remoteIpAddress, direction);
+                await CheckIpAddress(remoteIpAddress, direction);
+
+                TimeSpan timeRemainingUntilCacheReset = new TimeSpan(0, 10, 0) - (DateTime.Now - lastCacheClear);
+                Console.WriteLine($"Next cache reset in {timeRemainingUntilCacheReset.Minutes} minute(s) and {timeRemainingUntilCacheReset.Seconds} second(s)");
             }
         }
     }
 
-    private static void CheckIpAddress(IPAddress remoteIpAddress, string direction)
+    private static async Task CheckIpAddress(IPAddress remoteIpAddress, string direction)
     {
-        IpInfo? ipInfo = IpHelper.GetIpReputation(remoteIpAddress);
+        IpInfo? ipInfo = await IpHelper.GetIpReputation(remoteIpAddress);
 
         if (IpHelper.IsInternalIpAddress(remoteIpAddress.ToString()))
         {
@@ -200,7 +206,7 @@ public class Program
         Console.ResetColor();
     }
 
-    private static void CheckDns(Packet packet, IPAddress remoteIpAddress, string direction)
+    private static async Task CheckDns(Packet packet, IPAddress remoteIpAddress, string direction)
     {
         TransportPacket transportPacket = packet.Extract<TcpPacket>();
         transportPacket ??= packet.Extract<UdpPacket>();
@@ -219,7 +225,8 @@ public class Program
                 }
                 else
                 {
-                    domainInfo = DomainHelper.GetDomainReputation(domain);
+                    domainInfo = await DomainHelper.GetDomainReputation(domain);
+                    _ = capturedDomainsCache.TryAdd(domain, domainInfo);
                 }
 
                 if (domainInfo is null)

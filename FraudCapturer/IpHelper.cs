@@ -7,11 +7,20 @@ internal class IpHelper
 {
     public static string? ProxycheckApiKey { get; set; }
 
-    public static IpInfo? GetIpReputation(IPAddress ipAddress)
+    public static async Task<IpInfo?> GetIpReputation(IPAddress ipAddress)
     {
         HttpClient httpClient = new HttpClient();
+        string rawResponseData;
 
-        string rawResponseData = httpClient.GetStringAsync($"http://proxycheck.io/v2/{ipAddress}?key={ProxycheckApiKey}&risk=2&vpn=1&asn=1&tag={Program.AppName}({Environment.MachineName})").GetAwaiter().GetResult();
+        try
+        {
+            rawResponseData = await httpClient.GetStringAsync($"http://proxycheck.io/v2/{ipAddress}?key={ProxycheckApiKey}&risk=2&vpn=1&asn=1&tag={Program.AppName}({Environment.MachineName})");
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"error: {ex.Message}");
+            return null;
+        }
 
         JsonDocument responseData = JsonDocument.Parse(rawResponseData);
 
