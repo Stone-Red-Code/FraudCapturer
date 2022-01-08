@@ -5,11 +5,13 @@ namespace FraudCapturer;
 
 internal class IpHelper
 {
+    public static string? ProxycheckApiKey { get; set; }
+
     public static IpInfo? GetIpReputation(IPAddress ipAddress)
     {
         HttpClient httpClient = new HttpClient();
 
-        string rawResponseData = httpClient.GetStringAsync($"http://proxycheck.io/v2/{ipAddress}?key=65019k-719i38-2k0r91-36q7o7&risk=2&vpn=1&asn=1&tag={Program.AppName}").GetAwaiter().GetResult();
+        string rawResponseData = httpClient.GetStringAsync($"http://proxycheck.io/v2/{ipAddress}?key={ProxycheckApiKey}&risk=2&vpn=1&asn=1&tag={Program.AppName}({Environment.MachineName})").GetAwaiter().GetResult();
 
         JsonDocument responseData = JsonDocument.Parse(rawResponseData);
 

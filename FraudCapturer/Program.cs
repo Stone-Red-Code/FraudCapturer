@@ -13,6 +13,7 @@ namespace FraudCapturer;
 public class Program
 {
     public const string AppName = "FraudCapturer";
+    public const string AppUrl = "https://github.com/Stone-Red-Code/FraudCapturer";
     public const string IpStorePath = "ipAdresses.txt";
 
     private static DateTime lastCacheClear;
@@ -24,15 +25,27 @@ public class Program
     /// <summary>
     /// The main entry point for the application.
     /// </summary>
-    private static void Main()
+    private static void Main(string[] args)
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         // Print SharpPcap version
-        Console.WriteLine(AppName);
+        Console.WriteLine($"{AppName} - {AppUrl}");
         Console.WriteLine();
 
         // Retrieve the device list
         CaptureDeviceList devices = CaptureDeviceList.Instance;
+
+        if (string.IsNullOrWhiteSpace(args.FirstOrDefault()))
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("No proxycheck api key provided! You are limited to 100 IP checks per day. Get one for free at proxycheck.io.");
+            Console.WriteLine();
+            Console.ResetColor();
+        }
+        else
+        {
+            IpHelper.ProxycheckApiKey = args.FirstOrDefault();
+        }
 
         // If no devices were found print an error
         if (devices.Count < 1)
@@ -45,12 +58,12 @@ public class Program
         Console.WriteLine("----------------------------------------------------");
         Console.WriteLine();
 
+        //Print all available devices
         int i = 0;
 
-        // Print out the available devices
         foreach (ILiveDevice dev in devices)
         {
-            Console.WriteLine("{0}) {1}", i, dev.Description);
+            Console.WriteLine($"{i}) {dev.Description}");
             i++;
         }
 
@@ -72,9 +85,8 @@ public class Program
 
         device = devices[choice];
 
-        //Register our handler function to the 'packet arrival' event
-        device.OnPacketArrival +=
-            new PacketArrivalEventHandler(Device_OnPacketArrival);
+        //Register handler function to the 'packet arrival' event
+        device.OnPacketArrival += new PacketArrivalEventHandler(Device_OnPacketArrival);
 
         // Open the device for capturing
         device.Open();
@@ -82,13 +94,8 @@ public class Program
         Console.WriteLine();
         Console.WriteLine("-- Listening on {0}, hit 'Ctrl-C' to exit...", device.Description);
 
-        // Start capture 'INFINTE' number of packets
+        // Start capture of packets
         device.Capture();
-
-        // Close the pcap device
-        // (Note: this line will never be called since
-        //  we're capturing infinite number of packets
-        device.Close();
     }
 
     private static void Device_OnPacketArrival(object sender, PacketCapture e)
@@ -103,6 +110,7 @@ public class Program
                 IPAddress remoteIpAddress;
                 string direction;
 
+                //Check if the package is destined for the PC and determine if it goes in or out.
                 if (IpHelper.IsLocalIpAddress(ip.SourceAddress.ToString()))
                 {
                     remoteIpAddress = ip.DestinationAddress;
@@ -118,6 +126,7 @@ public class Program
                     return;
                 }
 
+                //Clear cache every 10 minutes.
                 if (DateTime.Now - lastCacheClear >= new TimeSpan(0, 10, 0))
                 {
                     lastCacheClear = DateTime.Now;
@@ -127,6 +136,7 @@ public class Program
                     Console.WriteLine("Cleared cache");
                 }
 
+                //Check if a DNS packet contains a "dangerous" domain.
                 CheckDns(packet, remoteIpAddress, direction);
 
                 if (capturedIpsCache.Contains(remoteIpAddress.ToString()))
@@ -139,6 +149,7 @@ public class Program
 
                 capturedIpsCache.Add(remoteIpAddress.ToString());
 
+                //Check if ip address is "dangerous" or blocked
                 CheckIpAddress(remoteIpAddress, direction);
             }
         }
