@@ -1,4 +1,6 @@
-﻿using System.Net;
+﻿using Stone_Red_Utilities.ConsoleExtentions;
+
+using System.Net;
 using System.Text.Json;
 
 namespace FraudCapturer;
@@ -18,7 +20,7 @@ internal class IpHelper
         }
         catch (HttpRequestException ex)
         {
-            Console.WriteLine($"error: {ex.Message}");
+            ConsoleExt.WriteLine($"error: {ex.Message}", ConsoleColor.Gray);
             return null;
         }
 
@@ -31,10 +33,10 @@ internal class IpHelper
 
         if (statusValue.GetString() != "ok")
         {
-            Console.Write(statusValue.GetString());
+            ConsoleExt.Write(statusValue.GetString(), ConsoleColor.Gray);
             if (responseData.RootElement.TryGetProperty("message", out JsonElement messageValue))
             {
-                Console.WriteLine($": {messageValue.GetString()}");
+                ConsoleExt.WriteLine($": {messageValue.GetString()}", ConsoleColor.Gray);
             }
             else
             {
@@ -96,21 +98,13 @@ internal class IpHelper
         }
 
         byte[] ip = IPAddress.Parse(ipAdress).GetAddressBytes();
-        switch (ip[0])
+        return ip[0] switch
         {
-            case 10:
-            case 127:
-                return true;
-
-            case 172:
-                return ip[1] >= 16 && ip[1] < 32;
-
-            case 192:
-                return ip[1] == 168;
-
-            default:
-                return false;
-        }
+            10 or 127 => true,
+            172 => ip[1] >= 16 && ip[1] < 32,
+            192 => ip[1] == 168,
+            _ => false,
+        };
     }
 
     public static bool IsLocalIpAddress(string host)

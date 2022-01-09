@@ -1,5 +1,7 @@
 ﻿using PacketDotNet;
 
+using Stone_Red_Utilities.ConsoleExtentions;
+
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -49,7 +51,7 @@ internal class DomainHelper
             }
             catch (HttpRequestException ex)
             {
-                Console.WriteLine($"error: {ex.Message}");
+                ConsoleExt.WriteLine($"error: {ex.Message}", ConsoleColor.Gray);
                 return null;
             }
 
@@ -72,7 +74,7 @@ internal class DomainHelper
         }
         catch (SocketException ex)
         {
-            Console.WriteLine($"error: {ex.Message} ({domain})");
+            ConsoleExt.WriteLine($"error: {ex.Message} ({domain})", ConsoleColor.Gray);
             return null;
         }
     }
