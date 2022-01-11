@@ -1,4 +1,6 @@
-﻿
+﻿using FraudCapturer.Configuration;
+using FraudCapturer.Helpers;
+
 using PacketDotNet;
 
 using SharpPcap;
@@ -10,9 +12,6 @@ using System.Net;
 
 namespace FraudCapturer;
 
-/// <summary>
-/// Example showing packet manipulation
-/// </summary>
 public class Program
 {
     public const string AppName = "FraudCapturer";
@@ -24,6 +23,8 @@ public class Program
 
     private static readonly ConcurrentBag<string> capturedIpsCache = new();
     private static readonly ConcurrentDictionary<string, DomainInfo?> capturedDomainsCache = new();
+
+    private static BlockConfig blockConfig = new BlockConfig();
 
     /// <summary>
     /// The main entry point for the application.
@@ -174,19 +175,19 @@ public class Program
             bool block = false;
             ConsoleColor consoleColor;
 
-            if (ipInfo.Risk >= 67)
+            if (ipInfo.Risk >= 67 && blockConfig.CheckIfBlockSet(ipInfo, blockConfig.HighRiskSet))
             {
                 FirewallHelper.BlockIp(remoteIpAddress);
                 consoleColor = ConsoleColor.Red;
                 block = true;
             }
-            else if (ipInfo.Risk >= 34 && ipInfo.IsProxy)
+            else if (ipInfo.Risk <= 33 && blockConfig.CheckIfBlockSet(ipInfo, blockConfig.LowRiskSet))
             {
                 FirewallHelper.BlockIp(remoteIpAddress);
-                consoleColor = ConsoleColor.DarkYellow;
+                consoleColor = ConsoleColor.Yellow;
                 block = true;
             }
-            else if (ipInfo.IsProxy && ipInfo.Type != "VPN")
+            else if (blockConfig.CheckIfBlockSet(ipInfo, blockConfig.MeduimRiskSet))
             {
                 FirewallHelper.BlockIp(remoteIpAddress);
                 consoleColor = ConsoleColor.DarkYellow;

@@ -3,7 +3,7 @@
 using System.Net;
 using System.Text.Json;
 
-namespace FraudCapturer;
+namespace FraudCapturer.Helpers;
 
 internal class IpHelper
 {

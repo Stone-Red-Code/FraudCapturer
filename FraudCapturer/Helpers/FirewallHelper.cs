@@ -1,6 +1,6 @@
 ﻿using System.Net;
 
-namespace FraudCapturer;
+namespace FraudCapturer.Helpers;
 
 internal class FirewallHelper
 {

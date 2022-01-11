@@ -2,7 +2,7 @@
 
 using System.Text;
 
-namespace FraudCapturer;
+namespace FraudCapturer.Helpers;
 
 internal static class PackageHelper
 {
