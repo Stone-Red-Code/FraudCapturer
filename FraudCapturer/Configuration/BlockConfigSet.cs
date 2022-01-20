@@ -9,7 +9,11 @@ internal class BlockConfigSet
         BlockIfVpn = blockIfVpn;
     }
 
-    public bool BlockIfNotProxy { get; }
-    public bool BlockIfProxy { get; }
-    public bool BlockIfVpn { get; }
+    public BlockConfigSet()
+    {
+    }
+
+    public bool BlockIfNotProxy { get; set; }
+    public bool BlockIfProxy { get; set; }
+    public bool BlockIfVpn { get; set; }
 }

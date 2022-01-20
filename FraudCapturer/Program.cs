@@ -9,6 +9,7 @@ using Stone_Red_Utilities.ConsoleExtentions;
 
 using System.Collections.Concurrent;
 using System.Net;
+using System.Text.Json;
 
 namespace FraudCapturer;
 
@@ -17,6 +18,7 @@ public class Program
     public const string AppName = "FraudCapturer";
     public const string AppUrl = "https://github.com/Stone-Red-Code/FraudCapturer";
     public const string IpStorePath = "ipAdresses.txt";
+    public const string ConfigStorePath = "config.txt";
 
     private static DateTime lastCacheClear;
     private static string lastDomain = string.Empty;
@@ -39,7 +41,16 @@ public class Program
         // Retrieve the device list
         CaptureDeviceList devices = CaptureDeviceList.Instance;
 
-        if (string.IsNullOrWhiteSpace(args.FirstOrDefault()))
+        if (args.FirstOrDefault() == "config")
+        {
+            blockConfig = new Configurator().GetConfig();
+            string jsonConfig = JsonSerializer.Serialize(blockConfig);
+            File.WriteAllText(ConfigStorePath, jsonConfig);
+
+            Console.WriteLine("-- Configuration saved!");
+            return;
+        }
+        else if (string.IsNullOrWhiteSpace(args.FirstOrDefault()))
         {
             ConsoleExt.WriteLine("No proxycheck api key provided! You are limited to 100 IP checks per day. Get one for free at proxycheck.io.", ConsoleColor.Red);
             Console.WriteLine();
@@ -47,6 +58,11 @@ public class Program
         else
         {
             IpHelper.ProxycheckApiKey = args.FirstOrDefault();
+        }
+
+        if (File.Exists(ConfigStorePath))
+        {
+            blockConfig = JsonSerializer.Deserialize<BlockConfig>(File.ReadAllText(ConfigStorePath)) ?? new BlockConfig();
         }
 
         // If no devices were found print an error
