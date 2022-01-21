@@ -1,5 +1,7 @@
 ﻿using PacketDotNet;
 
+using Stone_Red_Utilities.ConsoleExtentions;
+
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -7,7 +9,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
-namespace FraudCapturer;
+namespace FraudCapturer.Helpers;
 
 internal class DomainHelper
 {
@@ -22,7 +24,7 @@ internal class DomainHelper
         return domains.Distinct().ToArray();
     }
 
-    public static DomainInfo? GetDomainReputation(string domain)
+    public static async Task<DomainInfo?> GetDomainReputation(string domain)
     {
         try
         {
@@ -41,10 +43,19 @@ internal class DomainHelper
             };
 
             HttpContent httpContent = new StringContent(JsonSerializer.Serialize(reqestBody), Encoding.UTF8, "application/json");
+            HttpResponseMessage responseMessage;
 
-            HttpResponseMessage responseMessage = httpClient.PostAsync("https://anti-fish.bitflow.dev/check", httpContent).GetAwaiter().GetResult(); ;
+            try
+            {
+                responseMessage = await httpClient.PostAsync("https://anti-fish.bitflow.dev/check", httpContent);
+            }
+            catch (HttpRequestException ex)
+            {
+                ConsoleExt.WriteLine($"error: {ex.Message}", ConsoleColor.Gray);
+                return null;
+            }
 
-            string resultString = responseMessage.Content.ReadAsStringAsync().GetAwaiter().GetResult(); ;
+            string resultString = await responseMessage.Content.ReadAsStringAsync();
             AntiFishResultBody? resultBody = JsonSerializer.Deserialize<AntiFishResultBody>(resultString);
 
             AntiFishResult? result = resultBody?.Matches?.FirstOrDefault(m => m.Domain == domain);
@@ -63,7 +74,7 @@ internal class DomainHelper
         }
         catch (SocketException ex)
         {
-            Console.WriteLine($"error: {ex.Message} ({domain})");
+            ConsoleExt.WriteLine($"error: {ex.Message} ({domain})", ConsoleColor.Gray);
             return null;
         }
     }

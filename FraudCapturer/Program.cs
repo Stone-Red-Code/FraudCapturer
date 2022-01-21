@@ -1,26 +1,32 @@
-﻿
+﻿using FraudCapturer.Configuration;
+using FraudCapturer.Helpers;
+
 using PacketDotNet;
 
 using SharpPcap;
 
+using Stone_Red_Utilities.ConsoleExtentions;
+
+using System.Collections.Concurrent;
 using System.Net;
+using System.Text.Json;
 
 namespace FraudCapturer;
 
-/// <summary>
-/// Example showing packet manipulation
-/// </summary>
 public class Program
 {
     public const string AppName = "FraudCapturer";
     public const string AppUrl = "https://github.com/Stone-Red-Code/FraudCapturer";
     public const string IpStorePath = "ipAdresses.txt";
+    public const string ConfigStorePath = "config.txt";
 
     private static DateTime lastCacheClear;
     private static string lastDomain = string.Empty;
 
-    private static readonly List<string> capturedIpsCache = new();
-    private static readonly Dictionary<string, DomainInfo> capturedDomainsCache = new();
+    private static readonly ConcurrentBag<string> capturedIpsCache = new();
+    private static readonly ConcurrentDictionary<string, DomainInfo?> capturedDomainsCache = new();
+
+    private static BlockConfig blockConfig = new BlockConfig();
 
     /// <summary>
     /// The main entry point for the application.
@@ -35,16 +41,28 @@ public class Program
         // Retrieve the device list
         CaptureDeviceList devices = CaptureDeviceList.Instance;
 
-        if (string.IsNullOrWhiteSpace(args.FirstOrDefault()))
+        if (args.FirstOrDefault() == "config")
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("No proxycheck api key provided! You are limited to 100 IP checks per day. Get one for free at proxycheck.io.");
+            blockConfig = new Configurator().GetConfig();
+            string jsonConfig = JsonSerializer.Serialize(blockConfig);
+            File.WriteAllText(ConfigStorePath, jsonConfig);
+
+            Console.WriteLine("-- Configuration saved!");
+            return;
+        }
+        else if (string.IsNullOrWhiteSpace(args.FirstOrDefault()))
+        {
+            ConsoleExt.WriteLine("No proxycheck api key provided! You are limited to 100 IP checks per day. Get one for free at proxycheck.io.", ConsoleColor.Red);
             Console.WriteLine();
-            Console.ResetColor();
         }
         else
         {
             IpHelper.ProxycheckApiKey = args.FirstOrDefault();
+        }
+
+        if (File.Exists(ConfigStorePath))
+        {
+            blockConfig = JsonSerializer.Deserialize<BlockConfig>(File.ReadAllText(ConfigStorePath)) ?? new BlockConfig();
         }
 
         // If no devices were found print an error
@@ -92,7 +110,7 @@ public class Program
         device.Open();
 
         Console.WriteLine();
-        Console.WriteLine("-- Listening on {0}, hit 'Ctrl-C' to exit...", device.Description);
+        Console.WriteLine($"-- Listening on {device.Description}, hit 'Ctrl-C' to exit...");
 
         // Start capture of packets
         device.Capture();
@@ -101,6 +119,11 @@ public class Program
     private static void Device_OnPacketArrival(object sender, PacketCapture e)
     {
         RawCapture rawPacket = e.GetPacket();
+        ProcessRawPacket(rawPacket);
+    }
+
+    private static async void ProcessRawPacket(RawCapture rawPacket)
+    {
         Packet packet = Packet.ParsePacket(rawPacket.LinkLayerType, rawPacket.Data);
         if (packet is EthernetPacket)
         {
@@ -133,74 +156,73 @@ public class Program
                     capturedIpsCache.Clear();
                     capturedDomainsCache.Clear();
                     File.WriteAllText(IpStorePath, string.Empty);
-                    Console.WriteLine("Cleared cache");
+                    ConsoleExt.WriteLine("Cleared cache", ConsoleColor.Gray);
                 }
 
                 //Check if a DNS packet contains a "dangerous" domain.
-                CheckDns(packet, remoteIpAddress, direction);
+                await CheckDns(packet, remoteIpAddress, direction);
 
                 if (capturedIpsCache.Contains(remoteIpAddress.ToString()))
                 {
                     return;
                 }
 
-                TimeSpan timeRemainingUntilCacheReset = new TimeSpan(0, 10, 0) - (DateTime.Now - lastCacheClear);
-                Console.WriteLine($"Next cache reset in {timeRemainingUntilCacheReset.Minutes} minute(s) and {timeRemainingUntilCacheReset.Seconds} second(s)");
-
                 capturedIpsCache.Add(remoteIpAddress.ToString());
 
                 //Check if ip address is "dangerous" or blocked
-                CheckIpAddress(remoteIpAddress, direction);
+                await CheckIpAddress(remoteIpAddress, direction);
+
+                TimeSpan timeRemainingUntilCacheReset = new TimeSpan(0, 10, 0) - (DateTime.Now - lastCacheClear);
+                ConsoleExt.WriteLine($"Next cache reset in {timeRemainingUntilCacheReset.Minutes} minute(s) and {timeRemainingUntilCacheReset.Seconds} second(s)", ConsoleColor.Gray);
             }
         }
     }
 
-    private static void CheckIpAddress(IPAddress remoteIpAddress, string direction)
+    private static async Task CheckIpAddress(IPAddress remoteIpAddress, string direction)
     {
-        IpInfo? ipInfo = IpHelper.GetIpReputation(remoteIpAddress);
+        IpInfo? ipInfo = await IpHelper.GetIpReputation(remoteIpAddress);
 
         if (IpHelper.IsInternalIpAddress(remoteIpAddress.ToString()))
         {
-            Console.ForegroundColor = ConsoleColor.Cyan;
-            Console.WriteLine($"[{direction}] [Internal] {remoteIpAddress}");
+            ConsoleExt.WriteLine($"[{direction}] [Internal] {remoteIpAddress}", ConsoleColor.Cyan);
         }
         else if (ipInfo is not null)
         {
             bool block = false;
-            if (ipInfo.Risk >= 67)
+            ConsoleColor consoleColor;
+
+            if (ipInfo.Risk >= 67 && blockConfig.CheckIfBlockSet(ipInfo, blockConfig.HighRiskSet))
             {
                 FirewallHelper.BlockIp(remoteIpAddress);
-                Console.ForegroundColor = ConsoleColor.Red;
+                consoleColor = ConsoleColor.Red;
                 block = true;
             }
-            else if (ipInfo.Risk >= 34 && ipInfo.IsProxy)
+            else if (ipInfo.Risk <= 33 && blockConfig.CheckIfBlockSet(ipInfo, blockConfig.LowRiskSet))
             {
                 FirewallHelper.BlockIp(remoteIpAddress);
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                consoleColor = ConsoleColor.Yellow;
                 block = true;
             }
-            else if (ipInfo.IsProxy && ipInfo.Type != "VPN")
+            else if (blockConfig.CheckIfBlockSet(ipInfo, blockConfig.MeduimRiskSet))
             {
                 FirewallHelper.BlockIp(remoteIpAddress);
-                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                consoleColor = ConsoleColor.DarkYellow;
                 block = true;
             }
             else
             {
-                Console.ForegroundColor = ConsoleColor.Green;
+                consoleColor = ConsoleColor.Green;
             }
 
-            Console.WriteLine($"[{direction}] [Provider: {ipInfo.Provider}] [Risk: {ipInfo.Risk}] [Proxy: {ipInfo.IsProxy}] [Type: {ipInfo.Type}] [Block: {block}] {remoteIpAddress}");
+            ConsoleExt.WriteLine($"[{direction}] [Provider: {ipInfo.Provider}] [Risk: {ipInfo.Risk}] [Proxy: {ipInfo.IsProxy}] [Type: {ipInfo.Type}] [Block: {block}] {remoteIpAddress}", consoleColor);
         }
         else
         {
-            Console.ForegroundColor = ConsoleColor.Magenta;
-            Console.WriteLine($"[{direction}] [Invalid] {remoteIpAddress}");
+            ConsoleExt.WriteLine($"[{direction}] [Invalid] {remoteIpAddress}", ConsoleColor.Magenta);
         }
-        Console.ResetColor();
     }
 
-    private static void CheckDns(Packet packet, IPAddress remoteIpAddress, string direction)
+    private static async Task CheckDns(Packet packet, IPAddress remoteIpAddress, string direction)
     {
         TransportPacket transportPacket = packet.Extract<TcpPacket>();
         transportPacket ??= packet.Extract<UdpPacket>();
@@ -219,54 +241,53 @@ public class Program
                 }
                 else
                 {
-                    domainInfo = DomainHelper.GetDomainReputation(domain);
+                    domainInfo = await DomainHelper.GetDomainReputation(domain);
+                    _ = capturedDomainsCache.TryAdd(domain, domainInfo);
                 }
 
                 if (domainInfo is null)
                 {
-                    Console.ForegroundColor = ConsoleColor.Magenta;
                     if (lastDomain != domain)
                     {
                         lastDomain = domain;
-                        Console.WriteLine($"[{direction}] [Dns] [Invalid] [Domain: {domain}] {remoteIpAddress}");
+                        ConsoleExt.WriteLine($"[{direction}] [Dns] [Invalid] [Domain: {domain}] {remoteIpAddress}", ConsoleColor.Magenta);
                     }
-                    Console.ResetColor();
                     continue;
                 }
 
                 if (domainInfo.IsMatch == false)
                 {
-                    Console.ForegroundColor = ConsoleColor.Green;
                     if (lastDomain != domain)
                     {
                         lastDomain = domain;
-                        Console.WriteLine($"[{direction}] [Dns] [Domain: {domain}] [Type: Undetected] [Block: {block}] {remoteIpAddress}");
+                        ConsoleExt.WriteLine($"[{direction}] [Dns] [Domain: {domain}] [Type: Undetected] [Block: {block}] {remoteIpAddress}", ConsoleColor.Green);
                     }
-                    Console.ResetColor();
                     continue;
                 }
+
+                ConsoleColor consoleColor;
 
                 if (domainInfo.TrustRating >= 0.9)
                 {
                     FirewallHelper.BlockIp(domainInfo.IpAddress);
-                    Console.ForegroundColor = ConsoleColor.Red;
+                    consoleColor = ConsoleColor.Red;
                     block = true;
                 }
                 else if (domainInfo.TrustRating >= 0.5)
                 {
                     FirewallHelper.BlockIp(domainInfo.IpAddress);
-                    Console.ForegroundColor = ConsoleColor.DarkYellow;
+                    consoleColor = ConsoleColor.DarkYellow;
                     block = true;
                 }
                 else
                 {
-                    Console.ForegroundColor = ConsoleColor.Green;
+                    consoleColor = ConsoleColor.Green;
                 }
 
                 if (lastDomain != domain)
                 {
                     lastDomain = domain;
-                    Console.WriteLine($"[{direction}] [Dns] [Domain: {domain}] [Type: {domainInfo.Type}] [Source: {domainInfo.Source}] [Source Trust: {domainInfo.TrustRating * 100d}] [Block: {block}] {remoteIpAddress}");
+                    ConsoleExt.WriteLine($"[{direction}] [Dns] [Domain: {domain}] [Type: {domainInfo.Type}] [Source: {domainInfo.Source}] [Source Trust: {domainInfo.TrustRating * 100d}] [Block: {block}] {remoteIpAddress}", consoleColor);
                 }
 
                 Console.ResetColor();
