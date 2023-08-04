@@ -22,7 +22,7 @@ internal class BlockConfig
         }
     }
 
-    public bool CheckIfBlockSet(IpInfo ipInfo, BlockConfigSet blockConfigSet)
+    public static bool CheckIfBlockSet(IpInfo ipInfo, BlockConfigSet blockConfigSet)
     {
         if (ipInfo.Type == "VPN" && blockConfigSet.BlockIfVpn)
         {

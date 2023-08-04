@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace FraudCapturer.Helpers;
 
-internal class IpHelper
+internal static class IpHelper
 {
     public static string? ProxycheckApiKey { get; set; }
 
@@ -101,7 +101,7 @@ internal class IpHelper
         return ip[0] switch
         {
             10 or 127 => true,
-            172 => ip[1] >= 16 && ip[1] < 32,
+            172 => ip[1] is >= 16 and < 32,
             192 => ip[1] == 168,
             _ => false,
         };
@@ -124,16 +124,14 @@ internal class IpHelper
                     return true;
                 }
 
-                foreach (IPAddress localIP in localIPs)
-                {
-                    if (hostIP.Equals(localIP))
-                    {
-                        return true;
-                    }
-                }
+                return localIPs.Any(i => i.Equals(hostIP));
             }
         }
-        catch { }
+        catch
+        {
+            return false;
+        }
+
         return false;
     }
 }

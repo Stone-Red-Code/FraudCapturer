@@ -13,7 +13,7 @@ using System.Text.Json;
 
 namespace FraudCapturer;
 
-public class Program
+public static class Program
 {
     public const string AppName = "FraudCapturer";
     public const string AppUrl = "https://github.com/Stone-Red-Code/FraudCapturer";
@@ -43,7 +43,7 @@ public class Program
 
         if (args.FirstOrDefault() == "config")
         {
-            blockConfig = new Configurator().GetConfig();
+            blockConfig = Configurator.GetConfig();
             string jsonConfig = JsonSerializer.Serialize(blockConfig);
             File.WriteAllText(ConfigStorePath, jsonConfig);
 
@@ -119,10 +119,10 @@ public class Program
     private static void Device_OnPacketArrival(object sender, PacketCapture e)
     {
         RawCapture rawPacket = e.GetPacket();
-        ProcessRawPacket(rawPacket);
+        _ = ProcessRawPacket(rawPacket);
     }
 
-    private static async void ProcessRawPacket(RawCapture rawPacket)
+    private static async Task ProcessRawPacket(RawCapture rawPacket)
     {
         Packet packet = Packet.ParsePacket(rawPacket.LinkLayerType, rawPacket.Data);
         if (packet is EthernetPacket)
@@ -191,19 +191,19 @@ public class Program
             bool block = false;
             ConsoleColor consoleColor;
 
-            if (ipInfo.Risk >= 67 && blockConfig.CheckIfBlockSet(ipInfo, blockConfig.HighRiskSet))
+            if (ipInfo.Risk >= 67 && BlockConfig.CheckIfBlockSet(ipInfo, blockConfig.HighRiskSet))
             {
                 FirewallHelper.BlockIp(remoteIpAddress);
                 consoleColor = ConsoleColor.Red;
                 block = true;
             }
-            else if (ipInfo.Risk <= 33 && blockConfig.CheckIfBlockSet(ipInfo, blockConfig.LowRiskSet))
+            else if (ipInfo.Risk <= 33 && BlockConfig.CheckIfBlockSet(ipInfo, blockConfig.LowRiskSet))
             {
                 FirewallHelper.BlockIp(remoteIpAddress);
                 consoleColor = ConsoleColor.Yellow;
                 block = true;
             }
-            else if (blockConfig.CheckIfBlockSet(ipInfo, blockConfig.MeduimRiskSet))
+            else if (BlockConfig.CheckIfBlockSet(ipInfo, blockConfig.MeduimRiskSet))
             {
                 FirewallHelper.BlockIp(remoteIpAddress);
                 consoleColor = ConsoleColor.DarkYellow;
@@ -255,7 +255,7 @@ public class Program
                     continue;
                 }
 
-                if (domainInfo.IsMatch == false)
+                if (!domainInfo.IsMatch)
                 {
                     if (lastDomain != domain)
                     {

@@ -2,7 +2,7 @@
 
 namespace FraudCapturer.Helpers;
 
-internal class FirewallHelper
+internal static class FirewallHelper
 {
     public static void BlockIp(IPAddress? ipAddress)
     {
@@ -41,7 +41,7 @@ internal class FirewallHelper
         lock (Program.IpStorePath)
         {
             List<string> iPs = File.ReadAllLines(Program.IpStorePath).ToList();
-            iPs.Remove(ipAddress.ToString());
+            _ = iPs.Remove(ipAddress.ToString());
 
             File.WriteAllLines(Program.IpStorePath, iPs);
 

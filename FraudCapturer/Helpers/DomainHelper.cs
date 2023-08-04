@@ -15,12 +15,8 @@ internal class DomainHelper
 {
     public static string[] GetDomainsFromDnsReqest(TransportPacket transportPacket)
     {
-        List<string> domains = new();
         MatchCollection matchCollection = Regex.Matches(transportPacket.GetPayloadAsString().ToLower(), @"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]");
-        foreach (Match match in matchCollection)
-        {
-            domains.Add(match.Value);
-        }
+        List<string> domains = matchCollection.Select(match => match.Value).ToList();
         return domains.Distinct().ToArray();
     }
 
@@ -79,13 +75,13 @@ internal class DomainHelper
         }
     }
 
-    private class AntiFishReqestBody
+    private sealed class AntiFishReqestBody
     {
         [JsonPropertyName("message")]
         public string? Message { get; set; }
     }
 
-    private class AntiFishResult
+    private sealed class AntiFishResult
     {
         [JsonPropertyName("followed")]
         public bool Followed { get; set; }
@@ -103,7 +99,7 @@ internal class DomainHelper
         public double TrustRating { get; set; }
     }
 
-    private class AntiFishResultBody
+    private sealed class AntiFishResultBody
     {
         [JsonPropertyName("match")]
         public bool Match { get; set; }

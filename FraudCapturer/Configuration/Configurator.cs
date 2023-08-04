@@ -1,8 +1,8 @@
 ﻿namespace FraudCapturer.Configuration;
 
-internal class Configurator
+internal static class Configurator
 {
-    public BlockConfig GetConfig()
+    public static BlockConfig GetConfig()
     {
         BlockConfig blockConfig = new BlockConfig();
 
@@ -24,7 +24,7 @@ internal class Configurator
         return blockConfig;
     }
 
-    private BlockConfigSet GetBlockConfigSetFromConsole(bool ifNotProxyDefault, bool ifproxyDefault, bool ifVpnDeault)
+    private static BlockConfigSet GetBlockConfigSetFromConsole(bool ifNotProxyDefault, bool ifproxyDefault, bool ifVpnDeault)
     {
         BlockConfigSet blockConfigSet = new BlockConfigSet();
         Console.WriteLine($"Block if no Proxy detected {GetDefaultHintString(ifNotProxyDefault)}:");
@@ -39,7 +39,7 @@ internal class Configurator
         return blockConfigSet;
     }
 
-    private bool GetBoolValueFromConsole(bool defaultValue)
+    private static bool GetBoolValueFromConsole(bool defaultValue)
     {
         string input = Console.ReadLine() ?? string.Empty;
 
@@ -48,7 +48,7 @@ internal class Configurator
             return defaultValue;
         }
 
-        while (input.ToLower() != "y" && input.ToLower() != "n")
+        while (input.ToLower() is not "y" and not "n")
         {
             input = Console.ReadLine() ?? string.Empty;
         }
@@ -56,7 +56,7 @@ internal class Configurator
         return input.ToLower() == "y";
     }
 
-    private string GetDefaultHintString(bool defaultValue)
+    private static string GetDefaultHintString(bool defaultValue)
     {
         return defaultValue ? "[Y/n]" : "[y/N]";
     }
