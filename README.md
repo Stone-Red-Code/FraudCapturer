@@ -4,12 +4,12 @@
 
 ## Usage
 
-1. Download one of the [releases](https://github.com/Stone-Red-Code/FraudCapturer/releases)
+1. Download one of the [releases](https://github.com/Stone-Red-Code/FraudCapturer/releases).
 1. Download and install [nmap](https://nmap.org/download.html)
-1. (Not reqired but recommended) Get a [proxycheck.io](https://proxycheck.io/) api key
-1. (Not reqired) Start `FraudCapturer.exe` and pass the config option to it to configure the blocking rules
-1. Start `FraudCapturer.exe` as administrator and pass the proxycheck api key to it if you have one
-1. Select the network device you want the program to listen to
+1. (Not required but recommended) Get a [proxycheck.io](https://proxycheck.io/) api key.
+1. (Not required) Start `FraudCapturer.exe` and pass the config option to it to configure the blocking rules.
+1. Start `FraudCapturer.exe` as administrator and pass the proxycheck api key to it if you have one.
+1. Select the network device you want the program to listen to.
 
 ## Additional information
 
